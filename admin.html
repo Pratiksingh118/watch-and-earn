@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Watch & Earn</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background: #0B0E14; color: #E2E8F0; font-family: 'Inter', system-ui, sans-serif; }
+        .glass-card { background: rgba(22, 28, 45, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    </style>
+</head>
+<body class="p-4 md:p-8 min-h-screen">
+
+    <div class="max-w-4xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <div class="glass-card p-6 rounded-2xl flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold text-white">Admin Management Panel</h1>
+                <p class="text-xs text-gray-400">Manage user rewards and pending withdrawal payouts</p>
+            </div>
+            <span class="bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 text-xs px-3 py-1 rounded-full font-semibold">Live Firestore Sync</span>
+        </div>
+
+        <!-- Section: Pending Withdrawals -->
+        <div class="glass-card p-6 rounded-2xl space-y-4">
+            <h2 class="text-md font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-wallet text-indigo-400"></i> Pending Withdrawal Requests
+            </h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="border-b border-gray-800 text-gray-400 uppercase tracking-wider">
+                            <th class="py-3 px-2">User Email</th>
+                            <th class="py-3 px-2">Wallet Address</th>
+                            <th class="py-3 px-2">Points</th>
+                            <th class="py-3 px-2">Status</th>
+                            <th class="py-3 px-2 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="withdrawal-table-body" class="divide-y divide-gray-800 text-gray-300">
+                        <tr><td colspan="5" class="py-4 text-center text-gray-500">Loading requests...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Section: All Users -->
+        <div class="glass-card p-6 rounded-2xl space-y-4">
+            <h2 class="text-md font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-users text-emerald-400"></i> Registered Users
+            </h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="border-b border-gray-800 text-gray-400 uppercase tracking-wider">
+                            <th class="py-3 px-2">Email</th>
+                            <th class="py-3 px-2">Points Balance</th>
+                            <th class="py-3 px-2 text-right">Adjust Points</th>
+                        </tr>
+                    </thead>
+                    <tbody id="user-table-body" class="divide-y divide-gray-800 text-gray-300">
+                        <tr><td colspan="3" class="py-4 text-center text-gray-500">Loading users...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        // REPLACE WITH YOUR FIREBASE CONFIG
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_KEY"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Load Pending Withdrawals
+        db.collection('withdrawals').where('status', '==', 'pending').onSnapshot(snapshot => {
+            const tbody = document.getElementById('withdrawal-table-body');
+            if (snapshot.empty) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-gray-500">No pending requests found.</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = '';
+            snapshot.forEach(doc => {
+                const item = doc.data();
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="py-3 px-2">${item.email}</td>
+                        <td class="py-3 px-2 font-mono text-gray-400">${item.wallet}</td>
+                        <td class="py-3 px-2 font-bold text-indigo-400">${item.points} pts</td>
+                        <td class="py-3 px-2"><span class="bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded text-[10px]">Pending</span></td>
+                        <td class="py-3 px-2 text-right space-x-2">
+                            <button onclick="updateWithdrawal('${doc.id}', 'approved')" class="bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded hover:bg-emerald-600/50">Approve</button>
+                            <button onclick="updateWithdrawal('${doc.id}', 'rejected', '${item.userId}', ${item.points})" class="bg-red-600/30 text-red-300 border border-red-500/30 px-2.5 py-1 rounded hover:bg-red-600/50">Reject</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        });
+
+        // Load Users List
+        db.collection('users').onSnapshot(snapshot => {
+            const tbody = document.getElementById('user-table-body');
+            tbody.innerHTML = '';
+            snapshot.forEach(doc => {
+                const u = doc.data();
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="py-3 px-2">${u.email}</td>
+                        <td class="py-3 px-2 font-bold text-emerald-400">${u.points || 0}</td>
+                        <td class="py-3 px-2 text-right">
+                            <button onclick="adjustUserPoints('${doc.id}', 100)" class="bg-gray-800 text-gray-300 border border-gray-700 px-2 py-1 rounded hover:bg-gray-700">+100</button>
+                            <button onclick="adjustUserPoints('${doc.id}', -100)" class="bg-gray-800 text-gray-300 border border-gray-700 px-2 py-1 rounded hover:bg-gray-700">-100</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        });
+
+        async function updateWithdrawal(id, status, userId = null, points = 0) {
+            await db.collection('withdrawals').doc(id).update({ status });
+            if (status === 'rejected' && userId) {
+                // Refund points if rejected
+                await db.collection('users').doc(userId).update({
+                    points: firebase.firestore.FieldValue.increment(points)
+                });
+            }
+        }
+
+        async function adjustUserPoints(userId, amount) {
+            await db.collection('users').doc(userId).update({
+                points: firebase.firestore.FieldValue.increment(amount)
+            });
+        }
+    </script>
+</body>
+</html>
