@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Watch & Earn - USDT Rewards</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background: #0B0E14; color: #E2E8F0; font-family: 'Inter', system-ui, sans-serif; }
+        .glass-card { background: rgba(22, 28, 45, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .glass-input { background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.1); }
+    </style>
+</head>
+<body class="min-h-screen pb-12">
+
+    <!-- Navbar -->
+    <nav class="glass-card sticky top-0 z-50 px-4 py-3 flex justify-between items-center border-b border-gray-800">
+        <div class="flex items-center gap-2">
+            <i class="fa-solid fa-play-circle text-indigo-500 text-2xl"></i>
+            <span class="font-bold text-lg text-white">Watch & Earn</span>
+        </div>
+        <div id="user-info" class="hidden flex items-center gap-3">
+            <span class="text-xs text-gray-400" id="user-email"></span>
+            <button onclick="handleLogout()" class="text-xs bg-red-500/20 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-lg hover:bg-red-500/30">Logout</button>
+        </div>
+    </nav>
+
+    <!-- VPN Alert Banner -->
+    <div id="vpn-banner" class="hidden bg-red-500/20 border-b border-red-500/40 text-red-300 text-xs px-4 py-3 text-center">
+        <i class="fa-solid fa-triangle-exclamation mr-1"></i> VPN or Proxy detected! Please disable your VPN to earn rewards.
+    </div>
+
+    <!-- Main Container -->
+    <div class="max-w-md mx-auto px-4 mt-6">
+
+        <!-- Auth Form (Shown when logged out) -->
+        <div id="auth-card" class="glass-card p-6 rounded-2xl shadow-xl">
+            <h2 class="text-xl font-bold text-white mb-4 text-center" id="auth-title">Login / Register</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="text-xs text-gray-400 block mb-1">Email Address</label>
+                    <input type="email" id="auth-email" placeholder="you@example.com" class="w-full glass-input px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-white">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-400 block mb-1">Password</label>
+                    <input type="password" id="auth-password" placeholder="••••••••" class="w-full glass-input px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-white">
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="handleAuth('login')" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-xl text-sm transition">Login</button>
+                    <button onclick="handleAuth('signup')" class="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 font-semibold py-2.5 rounded-xl text-sm transition">Register</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard (Shown when logged in) -->
+        <div id="dashboard" class="hidden space-y-6">
+
+            <!-- Stats Card -->
+            <div class="glass-card p-6 rounded-2xl text-center relative overflow-hidden">
+                <p class="text-xs uppercase tracking-widest text-gray-400 font-medium mb-1">Current Balance</p>
+                <div class="text-4xl font-extrabold text-indigo-400 mb-2"><span id="user-points">0</span> <span class="text-xs font-semibold text-gray-400">Points</span></div>
+                <p class="text-xs text-gray-500">Approx. <span id="user-usdt" class="text-emerald-400 font-semibold">$0.00</span> USDT</p>
+            </div>
+
+            <!-- Action Section -->
+            <div class="glass-card p-6 rounded-2xl text-center space-y-4">
+                <h3 class="text-md font-bold text-white">Watch Ads & Earn Points</h3>
+                <p class="text-xs text-gray-400">Watch a quick ad to earn 10 points. 10-second cooldown between ads.</p>
+
+                <button id="earn-btn" onclick="handleWatchAd()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl transition shadow-lg flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-circle-play"></i> Watch Ad & Earn
+                </button>
+            </div>
+
+            <!-- Withdrawal Section -->
+            <div class="glass-card p-6 rounded-2xl space-y-4">
+                <h3 class="text-md font-bold text-white">Request Payout</h3>
+                <div>
+                    <label class="text-xs text-gray-400 block mb-1">BEP20 / TRC20 USDT Wallet Address</label>
+                    <input type="text" id="wallet-address" placeholder="0x..." class="w-full glass-input px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-white mb-3">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-400 block mb-1">Points to Redeem (Min 100 Points)</label>
+                    <input type="number" id="redeem-points" placeholder="100" class="w-full glass-input px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-indigo-500 text-white">
+                </div>
+                <button onclick="handleWithdrawal()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-xl text-sm transition">Submit Withdrawal Request</button>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        // REPLACE WITH YOUR FIREBASE CONFIG
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_KEY"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // ADSTERRA CONFIG
+        const ADSTERRA_DIRECT_LINK = "YOUR_ADSTERRA_DIRECT_LINK_HERE";
+
+        let isVpnDetected = false;
+
+        // Anti-VPN Check using https://ipapi.co/json/
+        async function checkVPN() {
+            try {
+                let res = await fetch('https://ipapi.co/json/');
+                let data = await res.json();
+                if (data.proxy || data.hosting) {
+                    isVpnDetected = true;
+                    document.getElementById('vpn-banner').classList.remove('hidden');
+                    const btn = document.getElementById('earn-btn');
+                    btn.disabled = true;
+                    btn.innerText = "VPN Detected - Access Blocked";
+                    btn.classList.replace('bg-emerald-600', 'bg-red-600');
+                }
+            } catch (err) {
+                console.error("VPN check error:", err);
+            }
+        }
+
+        // Auth Listener
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                document.getElementById('auth-card').classList.add('hidden');
+                document.getElementById('dashboard').classList.remove('hidden');
+                document.getElementById('user-info').classList.remove('hidden');
+                document.getElementById('user-email').innerText = user.email;
+
+                // Sync User Data
+                db.collection('users').doc(user.uid).onSnapshot(docSnap => {
+                    if (docSnap.exists) {
+                        const data = docSnap.data();
+                        document.getElementById('user-points').innerText = data.points || 0;
+                        document.getElementById('user-usdt').innerText = `$${((data.points || 0) * 0.001).toFixed(2)}`;
+                    } else {
+                        db.collection('users').doc(user.uid).set({
+                            email: user.email,
+                            points: 0,
+                            lastWatchTimestamp: 0,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    }
+                });
+            } else {
+                document.getElementById('auth-card').classList.remove('hidden');
+                document.getElementById('dashboard').classList.add('hidden');
+                document.getElementById('user-info').classList.add('hidden');
+            }
+        });
+
+        // Login / Register
+        async function handleAuth(type) {
+            const email = document.getElementById('auth-email').value;
+            const pass = document.getElementById('auth-password').value;
+            if (!email || !pass) return alert('Enter email and password');
+            try {
+                if (type === 'login') await auth.signInWithEmailAndPassword(email, pass);
+                else await auth.createUserWithEmailAndPassword(email, pass);
+            } catch (err) { alert(err.message); }
+        }
+
+        function handleLogout() { auth.signOut(); }
+
+        // Watch Ad Handler
+        async function handleWatchAd() {
+            if (isVpnDetected) return alert("Disable VPN to proceed");
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const userRef = db.collection('users').doc(user.uid);
+            const userDoc = await userRef.get();
+            const lastWatch = userDoc.data()?.lastWatchTimestamp || 0;
+            const now = Date.now();
+
+            if ((now - lastWatch) / 1000 < 10) {
+                const rem = Math.ceil(10 - (now - lastWatch) / 1000);
+                return alert(`Please wait ${rem} seconds before watching another ad.`);
+            }
+
+            // Open Adsterra Direct Link
+            if (ADSTERRA_DIRECT_LINK && ADSTERRA_DIRECT_LINK !== "YOUR_ADSTERRA_DIRECT_LINK_HERE") {
+                window.open(ADSTERRA_DIRECT_LINK, '_blank');
+            }
+
+            const btn = document.getElementById('earn-btn');
+            btn.disabled = true;
+
+            let countdown = 10;
+            const timer = setInterval(() => {
+                countdown--;
+                if (countdown > 0) {
+                    btn.innerText = `Watching Ad... (${countdown}s)`;
+                } else {
+                    clearInterval(timer);
+                    userRef.update({
+                        points: firebase.firestore.FieldValue.increment(10),
+                        lastWatchTimestamp: Date.now()
+                    });
+                    btn.disabled = false;
+                    btn.innerText = "Watch Ad & Earn";
+                    alert("🎉 10 points added!");
+                }
+            }, 1000);
+        }
+
+        // Withdrawal Handler
+        async function handleWithdrawal() {
+            const user = auth.currentUser;
+            const wallet = document.getElementById('wallet-address').value;
+            const points = parseInt(document.getElementById('redeem-points').value);
+
+            if (!wallet || !points || points < 100) return alert("Minimum redemption is 100 points.");
+
+            const userRef = db.collection('users').doc(user.uid);
+            const userDoc = await userRef.get();
+            const currentPoints = userDoc.data()?.points || 0;
+
+            if (currentPoints < points) return alert("Insufficient points balance.");
+
+            await db.collection('withdrawals').add({
+                userId: user.uid,
+                email: user.email,
+                wallet: wallet,
+                points: points,
+                status: 'pending',
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            await userRef.update({
+                points: firebase.firestore.FieldValue.increment(-points)
+            });
+
+            alert("Withdrawal request submitted for approval!");
+            document.getElementById('wallet-address').value = '';
+            document.getElementById('redeem-points').value = '';
+        }
+
+        // Run VPN Check on load
+        window.addEventListener('DOMContentLoaded', checkVPN);
+    </script>
+</body>
+  </html>
+  
